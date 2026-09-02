@@ -1,0 +1,53 @@
+{
+  "name": "linear-axi",
+  "version": "0.1.0",
+  "description": "Agent-ergonomic Linear CLI with concise TOON and JSON output",
+  "type": "module",
+  "bin": {
+    "linear-axi": "./dist/bin/linear-axi.js"
+  },
+  "files": [
+    "dist",
+    "skills/linear-axi",
+    "LICENSE",
+    "README.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "build:skill": "tsx scripts/build-skill.ts",
+    "check:skill": "tsx scripts/build-skill.ts --check",
+    "dev": "tsx bin/linear-axi.ts",
+    "test": "npm run build && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "linear",
+    "cli",
+    "agent",
+    "axi",
+    "toon",
+    "graphql"
+  ],
+  "author": "Taylor Schmidt",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/schmidthole/linear-axi.git"
+  },
+  "dependencies": {
+    "@toon-format/toon": "^4.1.1",
+    "axi-sdk-js": "^0.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
