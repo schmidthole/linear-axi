@@ -35,6 +35,11 @@ export async function main(): Promise<void> {
       return jsonMode ? JSON.stringify(output, null, 2) : output;
     },
     commands: {
+      update: async () => {
+        throw new AxiError("registry updates are disabled because this project is not published to npm", "UPDATE_ERROR", [
+          "update your source checkout using https://github.com/schmidthole/linear-axi#install",
+        ]);
+      },
       issue: wrap(issueCommand),
       project: wrap(projectCommand),
       initiative: wrap(initiativeCommand),

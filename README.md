@@ -13,27 +13,30 @@ It follows the [AXI](https://github.com/kunchenguid/axi) conventions:
 
 ## Install
 
-Requires Node.js 20 or newer.
+Requires Git and Node.js 20 or newer (with npm). This project is not published to npm; packages with the same name on npm are unrelated. Install this repository explicitly:
 
 ```sh
-npm install -g linear-axi
-linear-axi --version
-```
-
-Until the package is published, install from a checkout:
-
-```sh
-npm install
+git clone https://github.com/schmidthole/linear-axi.git
+cd linear-axi
+npm ci
 npm run build
 npm link
 linear-axi --version
+linear-axi --help
 ```
 
-For one-off use after publication:
+`npm link` exposes this checkout's built CLI globally. Keep the checkout in place and ensure npm's global bin directory is on your `PATH`. Do not use `npm install -g linear-axi` or `npx linear-axi`, which resolve the unrelated npm package.
+
+To update, run these commands inside that checkout:
 
 ```sh
-npx -y linear-axi issue list --assignee me
+git pull --ff-only
+npm ci
+npm run build
+linear-axi --version
 ```
+
+The registry-based `linear-axi update` command is disabled, including `--check`; use the source update steps above.
 
 ## Authentication
 

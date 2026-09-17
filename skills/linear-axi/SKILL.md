@@ -39,4 +39,6 @@ examples:
   linear-axi setup hooks
 ```
 
-When the binary is not installed globally, replace `linear-axi` with `npx -y linear-axi`.
+If the binary is missing, install this repository using the [README installation instructions](https://github.com/schmidthole/linear-axi#install), then run `linear-axi --version` and `linear-axi --help`. This project is not published to npm; do not use an unqualified npm install or npx command for `linear-axi`, because the npm package is unrelated.
+
+Registry self-update is disabled. Use the README's source update instructions instead of `linear-axi update` or `linear-axi update --check`.
