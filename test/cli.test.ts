@@ -22,6 +22,8 @@ describe("CLI contract", () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("commands[7]");
     expect(result.stdout).toContain("--json");
+    expect(result.stdout).not.toContain("built-in");
+    expect(result.stdout).not.toContain("latest published");
   });
 
   it("validates usage before authentication and emits JSON errors on request", () => {
