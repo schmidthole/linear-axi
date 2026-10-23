@@ -46,7 +46,13 @@ Create a personal API key in Linear under **Settings → Security & access → A
 export LINEAR_API_KEY=lin_api_your_key_here
 ```
 
-`linear-axi` reads only `LINEAR_API_KEY`. It never accepts a key as a flag or writes it to disk. `.env`, `.env.*`, and other local secret files are gitignored; [`.env.example`](.env.example) contains a placeholder only.
+To act as a Linear agent app (OAuth `actor=app`, for example a `client_credentials` token), export the OAuth access token instead. It is sent as `Authorization: Bearer <token>`:
+
+```sh
+export LINEAR_ACCESS_TOKEN=your_oauth_access_token
+```
+
+`linear-axi` reads only `LINEAR_API_KEY` or `LINEAR_ACCESS_TOKEN`; set exactly one. Setting both is an `AUTH_ERROR` rather than a guess. It never accepts a credential as a flag, prints it, or writes it to disk. `.env`, `.env.*`, and other local secret files are gitignored; [`.env.example`](.env.example) contains a placeholder only.
 
 ## Output and discovery
 
@@ -107,9 +113,11 @@ linear-axi issue unarchive <issue>
 linear-axi issue delete <issue> [--permanent]
 ```
 
-List/search filters include `--team`, `--assignee`, `--state`, `--project`, repeatable `--label`, `--priority`, `--include-archived`, `--limit`, and `--after`.
+List/search filters include `--team`, `--assignee`, `--delegate`, `--state`, `--project`, repeatable `--label`, `--priority`, `--include-archived`, `--limit`, and `--after`.
 
 Create/update fields include title, Markdown description or description file, assignee, workflow state, team, project, project milestone, parent, labels, priority, estimate, and due date. `--label` on `update` replaces the issue's complete label set; the `label add/remove` actions make incremental changes.
+
+Linear agent apps are delegates, not assignees: assigning an issue to an agent app sets the issue's `delegate`. `issue update --delegate <user|me|none>` sets or clears it, `issue list` and `issue search` filter on it with `--delegate`, and `delegate` is an output field on issue list, search, and get. With an app token, `me` resolves through `viewer` to the app user.
 
 Examples:
 
@@ -118,6 +126,8 @@ linear-axi issue create --team ENG --title "Fix login timeout" --assignee me --p
 linear-axi issue search "login timeout" --team ENG --state "In Progress"
 linear-axi issue update ENG-123 --project "Q4 reliability" --label bug
 linear-axi issue relation add ENG-123 ENG-456 --type blocked-by
+linear-axi issue list --delegate me --state Todo
+linear-axi issue update ENG-123 --delegate none
 ```
 
 ### Projects

@@ -4,6 +4,7 @@ export const ISSUE_LIST_SELECTION = `
   id identifier title priority estimate dueDate updatedAt archivedAt url
   state { id name type }
   assignee { id name email }
+  delegate { id name email }
   team { id key name }
   project { id name }
   labels { nodes { id name } }

@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 
 const bin = "dist/bin/linear-axi.js";
 
-function run(args: string[]) {
-  return spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", env: { ...process.env, LINEAR_API_KEY: "" } });
+function run(args: string[], env: Record<string, string> = {}) {
+  return spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", env: { ...process.env, LINEAR_API_KEY: "", LINEAR_ACCESS_TOKEN: "", ...env } });
 }
 
 describe("CLI contract", () => {
@@ -30,6 +30,21 @@ describe("CLI contract", () => {
     const result = run(["issue", "create", "--json"]);
     expect(result.status).toBe(2);
     expect(JSON.parse(result.stdout)).toMatchObject({ code: "VALIDATION_ERROR", error: "--team is required" });
+  });
+
+  it("fails secure when both credentials are set and never prints them", () => {
+    const result = run(["issue", "list", "--json"], { LINEAR_API_KEY: "lin_api_cli_secret", LINEAR_ACCESS_TOKEN: "cli-oauth-secret" });
+    expect(result.status).not.toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ code: "AUTH_ERROR", error: "Both LINEAR_API_KEY and LINEAR_ACCESS_TOKEN are set" });
+    expect(result.stdout + result.stderr).not.toMatch(/lin_api_cli_secret|cli-oauth-secret/);
+  });
+
+  it("names both credential options when neither is set", () => {
+    const result = run(["issue", "list", "--json"]);
+    expect(result.status).not.toBe(0);
+    const output = JSON.parse(result.stdout);
+    expect(output).toMatchObject({ code: "AUTH_ERROR", error: "LINEAR_API_KEY or LINEAR_ACCESS_TOKEN is not set" });
+    expect(output.help.join(" ")).toContain("LINEAR_ACCESS_TOKEN");
   });
 
   it("rejects unknown flags", () => {
