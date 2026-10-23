@@ -4,7 +4,7 @@
 
 - `bin/linear-axi.ts` is the dependency-light executable boundary. Keep the version check ahead of the dynamic CLI import.
 - `src/cli.ts` owns top-level AXI dispatch, JSON mode, the live home view, and structured error rendering.
-- `src/client.ts` is the only Linear transport. It reads `LINEAR_API_KEY`, sends GraphQL, sanitizes errors, and implements cursor-based total counting.
+- `src/client.ts` is the only Linear transport. It reads exactly one of `LINEAR_API_KEY` (raw header) or `LINEAR_ACCESS_TOKEN` (OAuth bearer), sends GraphQL, sanitizes errors, and implements cursor-based total counting.
 - `src/commands/` contains one command group per Linear domain plus lookups, raw GraphQL, and explicit hook setup.
 - `src/graphql.ts` contains reusable selection sets. Avoid feature-gated fields in shared selections.
 - `src/resolve.ts` converts names, keys, emails, issue identifiers, and UUIDs into mutation-safe IDs.
@@ -27,7 +27,7 @@
 
 ## Validation
 
-Run `npm run typecheck`, `npm test`, `npm run check:skill`, and `npm pack --dry-run`. Live checks require an exported `LINEAR_API_KEY`; tests must not require or print a real key.
+Run `npm run typecheck`, `npm test`, `npm run check:skill`, and `npm pack --dry-run`. Live checks require an exported `LINEAR_API_KEY` or `LINEAR_ACCESS_TOKEN`; tests must not require or print a real credential.
 
 ## Secrets and safety
 

@@ -15,25 +15,46 @@ interface GraphqlResponse<T> {
   errors?: GraphqlErrorShape[];
 }
 
+export interface LinearCredentials {
+  apiKey?: string | undefined;
+  accessToken?: string | undefined;
+}
+
 export class LinearClient {
   readonly #apiKey: string | undefined;
+  readonly #accessToken: string | undefined;
 
-  constructor(apiKey = process.env.LINEAR_API_KEY) {
-    this.#apiKey = apiKey?.trim() || undefined;
+  constructor(credentials: LinearCredentials | string = {
+    apiKey: process.env.LINEAR_API_KEY,
+    accessToken: process.env.LINEAR_ACCESS_TOKEN,
+  }) {
+    const resolved = typeof credentials === "string" ? { apiKey: credentials } : credentials;
+    this.#apiKey = resolved.apiKey?.trim() || undefined;
+    this.#accessToken = resolved.accessToken?.trim() || undefined;
+  }
+
+  #authorization(): string {
+    if (this.#apiKey && this.#accessToken) {
+      throw new AxiError("Both LINEAR_API_KEY and LINEAR_ACCESS_TOKEN are set", "AUTH_ERROR", [
+        "Unset one of them: LINEAR_API_KEY for a personal API key or LINEAR_ACCESS_TOKEN for an OAuth access token",
+      ]);
+    }
+    if (this.#accessToken) return `Bearer ${this.#accessToken}`;
+    if (this.#apiKey) return this.#apiKey;
+    throw new AxiError("LINEAR_API_KEY or LINEAR_ACCESS_TOKEN is not set", "AUTH_ERROR", [
+      "Export a Linear personal API key: `export LINEAR_API_KEY=lin_api_...`",
+      "Or export an OAuth access token, such as an app actor token: `export LINEAR_ACCESS_TOKEN=...`",
+    ]);
   }
 
   async request<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
-    if (!this.#apiKey) {
-      throw new AxiError("LINEAR_API_KEY is not set", "AUTH_ERROR", [
-        "Export a Linear personal API key: `export LINEAR_API_KEY=lin_api_...`",
-      ]);
-    }
+    const authorization = this.#authorization();
     let response: Response;
     try {
       response = await fetch(LINEAR_GRAPHQL_ENDPOINT, {
         method: "POST",
         headers: {
-          Authorization: this.#apiKey,
+          Authorization: authorization,
           "Content-Type": "application/json",
           Accept: "application/json",
           "User-Agent": "linear-axi/0.1",
@@ -60,12 +81,12 @@ export class LinearClient {
     if (!response.ok || payload.errors?.length) {
       const first = payload.errors?.[0];
       const message = first?.extensions?.userPresentableMessage ?? first?.message;
-      const safeMessage = sanitizeApiMessage(message ?? `Request failed with HTTP ${response.status}`);
+      const safeMessage = sanitizeApiMessage(message ?? `Request failed with HTTP ${response.status}`, [this.#apiKey, this.#accessToken]);
       const isAuth = response.status === 401 || response.status === 403 || /auth|api key|permission/i.test(safeMessage);
       throw new AxiError(
         isAuth ? `Linear authentication failed: ${safeMessage}` : `Linear API error: ${safeMessage}`,
         isAuth ? "AUTH_ERROR" : "API_ERROR",
-        isAuth ? ["Check that LINEAR_API_KEY is valid and has access to this workspace"] : [],
+        isAuth ? [`Check that ${this.#accessToken ? "LINEAR_ACCESS_TOKEN" : "LINEAR_API_KEY"} is valid and has access to this workspace`] : [],
       );
     }
     if (payload.data === undefined) {
@@ -75,8 +96,13 @@ export class LinearClient {
   }
 }
 
-function sanitizeApiMessage(message: string): string {
-  return message
+function sanitizeApiMessage(message: string, secrets: Array<string | undefined>): string {
+  let sanitized = message;
+  for (const secret of secrets) {
+    if (secret) sanitized = sanitized.split(secret).join("[redacted]");
+  }
+  return sanitized
+    .replace(/lin_oauth_[A-Za-z0-9_-]+/g, "[redacted]")
     .replace(/lin_api_[A-Za-z0-9_-]+/g, "[redacted]")
     .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
     .replace(/\s+/g, " ")

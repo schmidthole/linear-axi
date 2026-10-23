@@ -14,7 +14,9 @@ examples:
 
 export const SKILL_GUIDE = `Use linear-axi to manage Linear without opening the web app.
 
-Authentication: LINEAR_API_KEY must contain a Linear personal API key.
+Authentication: set exactly one of LINEAR_API_KEY (a Linear personal API key) or LINEAR_ACCESS_TOKEN (an OAuth access token, such as an actor=app agent token). Setting both is an AUTH_ERROR.
+
+Agent apps: assigning an issue to an agent app sets its delegate, not its assignee. Use --delegate <user|me|none> on issue list/search/update; with an app token, me is the app user.
 
 Command map:
 - issue: create, get, list/search, update, comment, assign, state, priority, estimate, labels, sub-issues, relations, archive, unarchive, delete

@@ -42,19 +42,20 @@ examples:
 `;
 
 const detailAllowed = [
-  "id", "identifier", "title", "description", "status", "statusType", "assignee", "creator", "team",
+  "id", "identifier", "title", "description", "status", "statusType", "assignee", "delegate", "creator", "team",
   "project", "priority", "estimate", "dueDate", "labels", "parent", "subIssues", "relations", "comments",
   "url", "createdAt", "updatedAt", "archivedAt", "trashed",
 ];
 const listAllowed = [
-  "id", "identifier", "title", "status", "statusType", "assignee", "team", "project", "priority", "estimate",
-  "dueDate", "labels", "url", "updatedAt", "archivedAt",
+  "id", "identifier", "title", "status", "statusType", "assignee", "delegate", "team", "project", "priority",
+  "estimate", "dueDate", "labels", "url", "updatedAt", "archivedAt",
 ];
 
 const listFlags: Record<string, FlagDefinition> = {
   ...LIST_FLAGS,
   "--team": { type: "string", description: "Team key, name, or ID" },
   "--assignee": { type: "string", description: "User email, name, ID, me, or none" },
+  "--delegate": { type: "string", description: "Delegated agent user email, name, ID, me, or none" },
   "--state": { type: "string", description: "Workflow state name or ID" },
   "--project": { type: "string", description: "Project name, identifier, ID, or none" },
   "--label": { type: "string", repeatable: true, description: "Required label name or ID" },
@@ -68,6 +69,7 @@ const LIST_DEFINITION: CommandDefinition = {
   examples: [
     "linear-axi issue list --team ENG --state Todo",
     "linear-axi issue list --assignee me --label bug --limit 100",
+    "linear-axi issue list --delegate me --state Todo",
     "linear-axi issue list --fields identifier,title,status,priority,url",
   ],
 };
@@ -127,6 +129,7 @@ const UPDATE_DEFINITION: CommandDefinition = {
     "--description": { type: "string", description: "New Markdown description" },
     "--description-file": { type: "string", description: "Read new description from a file" },
     "--assignee": { type: "string", description: "User reference or none" },
+    "--delegate": { type: "string", description: "Delegated agent user reference, me, or none" },
     "--state": { type: "string", description: "Workflow state reference" },
     "--team": { type: "string", description: "Move to team" },
     "--project": { type: "string", description: "Project reference or none" },
@@ -140,6 +143,7 @@ const UPDATE_DEFINITION: CommandDefinition = {
   examples: [
     "linear-axi issue update ENG-123 --state Done --assignee me",
     "linear-axi issue update ENG-123 --project none --estimate none",
+    "linear-axi issue update ENG-123 --delegate none",
   ],
 };
 
@@ -226,7 +230,7 @@ async function listIssues(args: string[], client: LinearClient, search: boolean)
     return page[queryName]!;
   }, { startsAtBeginning: initialAfter === undefined });
   const requested = stringFlag(parsed, "--fields");
-  const items = connection.nodes.map((node) => selectFields(issueRecord(node), requested, ["identifier", "title", "status", "assignee"], listAllowed));
+  const items = connection.nodes.map((node) => selectFields(issueRecord(node), requested, ["identifier", "title", "status", "assignee", "delegate"], listAllowed));
   const command = search
     ? `linear-axi issue search "${parsed.positionals[0]}"`
     : "linear-axi issue list";
@@ -246,6 +250,12 @@ async function issueFilter(parsed: ParsedArgs, client: LinearClient): Promise<Re
     filter.assignee = isNone(assignee)
       ? { null: true }
       : { id: { eq: (await resolveLookup(client, "user", assignee)).id } };
+  }
+  const delegate = stringFlag(parsed, "--delegate");
+  if (delegate) {
+    filter.delegate = isNone(delegate)
+      ? { null: true }
+      : { id: { eq: (await resolveLookup(client, "user", delegate)).id } };
   }
   const state = stringFlag(parsed, "--state");
   if (state) filter.state = { id: { eq: (await resolveLookup(client, "state", state, { teamId })).id } };
@@ -274,7 +284,7 @@ async function getIssue(args: string[], client: LinearClient): Promise<OutputRec
   if (!data.issue) throw new AxiError(`Issue not found: ${parsed.positionals[0]}`, "NOT_FOUND");
   const full = booleanFlag(parsed, "--full");
   const item = issueRecord(data.issue, { full });
-  const defaults = ["id", "identifier", "title", "description", "status", "assignee", "team", "project", "priority", "estimate", "labels", "parent", "subIssues", "relations", "comments", "url", "updatedAt"];
+  const defaults = ["id", "identifier", "title", "description", "status", "assignee", "delegate", "team", "project", "priority", "estimate", "labels", "parent", "subIssues", "relations", "comments", "url", "updatedAt"];
   const issue = selectFields(item, stringFlag(parsed, "--fields"), defaults, detailAllowed);
   const output: OutputRecord = { issue };
   if (!full && typeof data.issue.description === "string" && data.issue.description.length > 1000) {
@@ -322,7 +332,7 @@ async function updateIssue(args: string[], client: LinearClient): Promise<Output
     { id: issue.id, input },
   );
   const updated = mutationEntity(data.issueUpdate, "issue") as Record<string, unknown>;
-  return { result: "issue updated", issue: selectFields(issueRecord(updated), undefined, ["id", "identifier", "title", "status", "assignee", "priority", "estimate", "labels"], listAllowed) };
+  return { result: "issue updated", issue: selectFields(issueRecord(updated), undefined, ["id", "identifier", "title", "status", "assignee", "delegate", "priority", "estimate", "labels"], listAllowed) };
 }
 
 async function populateIssueInput(
@@ -334,6 +344,8 @@ async function populateIssueInput(
 ): Promise<void> {
   const assignee = stringFlag(parsed, "--assignee");
   if (assignee) input.assigneeId = allowClear && isNone(assignee) ? null : (await resolveLookup(client, "user", assignee)).id;
+  const delegate = stringFlag(parsed, "--delegate");
+  if (delegate) input.delegateId = allowClear && isNone(delegate) ? null : (await resolveLookup(client, "user", delegate)).id;
   const state = stringFlag(parsed, "--state");
   if (state) input.stateId = (await resolveLookup(client, "state", state, { teamId })).id;
   const project = stringFlag(parsed, "--project");
@@ -434,7 +446,7 @@ async function subissueCommand(args: string[], client: LinearClient): Promise<Ou
     const data = await client.request<{ issue: { children: Connection<Record<string, unknown>> } }>(
       `query SubIssues($id: String!) { issue(id: $id) { children(first: 250) { nodes { ${ISSUE_LIST_SELECTION} } pageInfo { hasNextPage endCursor } } } }`, { id: parent.id },
     );
-    const items = data.issue.children.nodes.map((node) => selectFields(issueRecord(node), undefined, ["identifier", "title", "status", "assignee"], listAllowed));
+    const items = data.issue.children.nodes.map((node) => selectFields(issueRecord(node), undefined, ["identifier", "title", "status", "assignee", "delegate"], listAllowed));
     return listOutput("subIssues", data.issue.children, items, { limit: 250, command: `linear-axi issue subissue list ${parsed.positionals[0]}` });
   }
   const definition: CommandDefinition = {
@@ -531,6 +543,7 @@ async function deleteIssue(args: string[], client: LinearClient): Promise<Output
 function issueRecord(raw: Record<string, unknown>, options: { full?: boolean } = {}): OutputRecord {
   const state = raw.state as { name?: string; type?: string } | null | undefined;
   const assignee = raw.assignee as { name?: string; email?: string } | null | undefined;
+  const delegate = raw.delegate as { name?: string; email?: string } | null | undefined;
   const creator = raw.creator as { name?: string; email?: string } | null | undefined;
   const team = raw.team as { key?: string; name?: string } | null | undefined;
   const project = raw.project as { name?: string } | null | undefined;
@@ -547,6 +560,7 @@ function issueRecord(raw: Record<string, unknown>, options: { full?: boolean } =
     status: state?.name,
     statusType: state?.type,
     assignee: assignee?.email ?? assignee?.name ?? "none",
+    delegate: delegate?.email ?? delegate?.name ?? "none",
     creator: creator?.email ?? creator?.name,
     team: team?.key ?? team?.name,
     project: project?.name ?? "none",
